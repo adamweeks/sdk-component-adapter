@@ -1,10 +1,17 @@
 version: 2.1
+
 # reusable environment for all jobs
 executors:
-  main-executor:
+  node-fermium-executor:
     working_directory: ~/sdk-component-adapter
     docker:
-      - image: circleci/node:12.7.0
+      - image: circleci/node:fermium-browsers
+  node-erbium-executor:
+    working_directory: ~/sdk-component-adapter
+    docker:
+      - image: circleci/node:erbium-browsers
+        environment:
+          NODE_ENV: development # Only needed if puppeteer is in `devDependencies`
 
 # reusable command for all jobs
 commands:
@@ -18,15 +25,15 @@ commands:
 # define jobs
 jobs:
   install:
-    executor: main-executor
+    executor: node-fermium-executor
     steps:
       - checkout
       - restore_cache:
           keys:
             - dependency-cache-{{ checksum "package-lock.json" }}
       - run:
-          name: Install Dependencies
-          command: npm i
+          name: Install Dependencies & Peer Dependencies
+          command: npx npm-install-peers
       - save_cache:
           key: dependency-cache-{{ checksum "package-lock.json" }}
           paths: node_modules
@@ -34,21 +41,31 @@ jobs:
           root: .
           paths: node_modules
 
-  test:
-    executor: main-executor
+  unit-test:
+    executor: node-fermium-executor
     steps:
       - checkout_from_workspace
       - run:
           name: Linting
-          command: npm run test:eslint
+          command: npm run linter
       - run:
           name: Unit Test Coverage
-          command: npm run test:coverage
+          command: npm run test:unit -- --coverage
+      - store_test_results:
+          path: test_results
+
+  integration-test:
+    executor: node-fermium-executor
+    steps:
+      - checkout_from_workspace
+      - run:
+          name: Integration Test Coverage
+          command: npm run test:integration -- --coverage
       - store_test_results:
           path: test_results
 
   build:
-    executor: main-executor
+    executor: node-fermium-executor
     steps:
       - checkout_from_workspace
       - run:
@@ -59,7 +76,7 @@ jobs:
           paths: dist
 
   release:
-    executor: main-executor
+    executor: node-fermium-executor
     steps:
       - checkout_from_workspace
       - run:
@@ -71,12 +88,12 @@ workflows:
   setup_test_release:
     jobs:
       - install
-      - test:
+      - unit-test:
           requires:
             - install
       - build:
           requires:
-            - test
+            - unit-test
           filters:
             branches:
               only: master

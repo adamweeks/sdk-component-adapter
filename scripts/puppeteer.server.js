@@ -1,0 +1,135 @@
+/* eslint-disable no-console */
+import {DestinationType} from '@webex/component-adapter-interfaces';
+import Webex from 'webex';
+
+import WebexSDKAdapter from '../src/WebexSDKAdapter';
+
+let MEETING_ID = null;
+let webexSDKAdapter;
+
+function handleAudio() {
+  webexSDKAdapter.meetingsAdapter.meetingControls['mute-audio'].display(MEETING_ID).subscribe((data) => {
+    const muteAudio = document.getElementById('mute-audio');
+
+    muteAudio.innerHTML = `${data.tooltip} audio`;
+  });
+}
+
+function handleVideo() {
+  webexSDKAdapter.meetingsAdapter.meetingControls['mute-video'].display(MEETING_ID).subscribe((data) => {
+    const muteVideo = document.getElementById('mute-video');
+
+    muteVideo.innerHTML = data.tooltip;
+  });
+}
+
+function handleShare() {
+  webexSDKAdapter.meetingsAdapter.meetingControls['share-screen'].display(MEETING_ID).subscribe((data) => {
+    const startShare = document.getElementById('share-screen');
+
+    startShare.innerHTML = data.tooltip;
+  });
+}
+
+function getMeeting() {
+  webexSDKAdapter.meetingsAdapter.getMeeting(MEETING_ID).subscribe(
+    (meeting) => {
+      console.log('Received meeting update: ', meeting);
+
+      document.getElementById('remote-audio').srcObject = meeting.remoteAudio;
+      document.getElementById('remote-video').srcObject = meeting.remoteVideo;
+      document.getElementById('local-audio').srcObject = meeting.localAudio;
+      document.getElementById('local-video').srcObject = meeting.localVideo;
+      document.getElementById('local-share').srcObject = meeting.localShare;
+      document.getElementById('remote-share').srcObject = meeting.remoteShare;
+      document.getElementById('meeting-title').innerHTML = meeting.title;
+    },
+    (error) => {
+      console.error('Get Meeting error: ', error);
+    },
+    () => console.log(`Meeting "${MEETING_ID}" has ended.`)
+  );
+}
+
+document.getElementById('connector').addEventListener('click', async (event) => {
+  event.preventDefault();
+  const status = document.getElementById('connection-status');
+  const credentials = document.getElementById('credentials').value;
+
+  try {
+    if (event.target.id === 'connect') {
+      const webex = new Webex({
+        credentials,
+      });
+
+      webexSDKAdapter = new WebexSDKAdapter(webex);
+      await webexSDKAdapter.connect();
+      status.innerHTML = 'Connected ✅';
+    } else if (event.target.id === 'disconnect') {
+      await webexSDKAdapter.disconnect();
+      status.innerHTML = 'Disconnected ❌';
+    }
+  } catch (error) {
+    console.error('Unable to connect/disconnect:', error);
+  }
+});
+
+document.getElementById('dialer').addEventListener('click', async (event) => {
+  event.preventDefault();
+
+  const destination = document.getElementById('destination').value;
+
+  try {
+    switch (event.target.id) {
+      case 'create-meeting':
+        webexSDKAdapter.meetingsAdapter.createMeeting(destination).subscribe(({ID}) => {
+          MEETING_ID = ID;
+          getMeeting();
+          handleAudio();
+          handleVideo();
+          handleShare();
+        });
+        break;
+      case 'join-meeting':
+        await webexSDKAdapter.meetingsAdapter.meetingControls['join-meeting'].action(MEETING_ID);
+        break;
+      case 'leave-meeting':
+        await webexSDKAdapter.meetingsAdapter.meetingControls['leave-meeting'].action(MEETING_ID);
+        break;
+    }
+  } catch (error) {
+    console.error('Unable to perform any dialing actions:', error);
+  }
+});
+
+document.getElementById('actions').addEventListener('click', async (event) => {
+  event.preventDefault();
+
+  try {
+    switch (event.target.id) {
+      case 'mute-audio':
+        await webexSDKAdapter.meetingsAdapter.meetingControls['mute-audio'].action(MEETING_ID);
+        break;
+      case 'mute-video':
+        await webexSDKAdapter.meetingsAdapter.meetingControls['mute-video'].action(MEETING_ID);
+        break;
+      case 'share-screen':
+        await webexSDKAdapter.meetingsAdapter.meetingControls['share-screen'].action(MEETING_ID);
+        break;
+    }
+  } catch (error) {
+    console.error('Unable to perform an action:', error);
+  }
+});
+
+document.getElementById('members').addEventListener('click', (event) => {
+  event.preventDefault();
+
+  if (event.target.id === 'get-members') {
+    webexSDKAdapter.membershipsAdapter
+      .getMembersFromDestination(MEETING_ID, DestinationType.MEETING)
+      .subscribe((members) => {
+        document.getElementById('members-list').value = JSON.stringify(members, '', 2);
+      });
+  }
+});

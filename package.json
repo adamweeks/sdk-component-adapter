@@ -1,23 +1,21 @@
 {
   "name": "@webex/sdk-component-adapter",
-  "version": "1.4.1",
-  "main": "dist/webexSDKComponentAdapter.cjs.js",
+  "version": "1.24.1",
+  "main": "dist/webexSDKComponentAdapter.esm.js",
   "module": "dist/webexSDKComponentAdapter.esm.js",
   "scripts": {
     "build": "rollup -c",
-    "clear": "rm package-lock.json && rm -rf node_modules",
-    "prettier": "prettier \"src/**/!(static)/**/*.*(js|jsx)\"",
-    "prettier:write": "prettier \"src/**/!(static)/**/*.*(js|jsx)\" --write",
+    "linter": "eslint src/",
     "release": "semantic-release",
     "release:debug": "semantic-release --debug",
     "release:dry-run": "semantic-release --dry-run",
-    "start": "NODE_ENV=development nodemon scripts/start.js --exec babel-node",
+    "start": "nodemon -r dotenv/config scripts/start.js",
+    "serve": "parcel scripts/index.html",
     "test": "jest",
     "test:integration": "jest \"^(?=.*integration.test.js).*\"",
     "test:unit": "jest \"^(?=.*.test.js)(?!.*integration).*\"",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "test:eslint": "eslint src/"
+    "test:coverage": "jest --coverage"
   },
   "repository": {
     "type": "git",
@@ -29,54 +27,45 @@
   },
   "author": "devsupport@webex.com",
   "license": "MIT",
+  "peerDependencies": {
+    "rxjs": "^6.5.4",
+    "webex": "^1.92.0"
+  },
   "dependencies": {
-    "@webex/common": "^1.80.43",
-    "@webex/component-adapter-interfaces": "^1.4.0",
-    "rxjs": "^6.5.3"
+    "@webex/common": "^1.105.0",
+    "@webex/component-adapter-interfaces": "^1.11.0"
   },
   "devDependencies": {
-    "@babel/cli": "^7.6.4",
-    "@babel/core": "^7.6.4",
-    "@babel/node": "^7.6.3",
-    "@babel/plugin-transform-regenerator": "^7.4.5",
-    "@babel/plugin-transform-runtime": "^7.6.2",
-    "@babel/preset-env": "^7.6.3",
-    "@commitlint/cli": "^8.2.0",
-    "@commitlint/config-conventional": "^8.2.0",
-    "@semantic-release/changelog": "^3.0.4",
-    "@semantic-release/git": "^7.0.16",
-    "@webex/eslint-config-base": "^0.8.0",
+    "@babel/core": "^7.12.3",
+    "@babel/node": "^7.12.6",
+    "@babel/plugin-transform-runtime": "^7.12.1",
+    "@babel/preset-env": "^7.12.1",
+    "@commitlint/cli": "^11.0.0",
+    "@commitlint/config-conventional": "^11.0.0",
+    "@semantic-release/changelog": "^5.0.1",
+    "@semantic-release/git": "^9.0.0",
     "@webex/test-users": "^1.80.36",
-    "babel-eslint": "^10.0.3",
-    "conventional-changelog-angular": "^5.0.3",
     "dotenv": "^8.2.0",
-    "eslint": "^6.4.0",
-    "eslint-config-prettier": "^6.2.0",
-    "eslint-plugin-import": "^2.18.2",
-    "eslint-plugin-jest": "^23.0.4",
-    "eslint-plugin-jsx-a11y": "^6.2.3",
-    "eslint-plugin-mocha": "^6.1.1",
-    "eslint-plugin-prettier": "^3.1.0",
-    "husky": "^3.0.5",
+    "eslint": "^7.2.0",
+    "eslint-config-airbnb-base": "^14.2.1",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-jest": "^24.1.3",
+    "eslint-plugin-jsdoc": "^30.7.8",
+    "husky": "^4.3.0",
     "jest": "^24.9.0",
     "jest-junit": "^8.0.0",
-    "nodemon": "^1.19.4",
-    "prettier": "^1.18.2",
+    "jest-puppeteer": "^4.3.0",
+    "nodemon": "^2.0.6",
+    "parcel": "^1.12.4",
+    "puppeteer": "^2.0.0",
     "rollup": "^1.21.4",
     "rollup-plugin-babel": "^4.3.3",
     "rollup-plugin-commonjs": "^10.1.0",
-    "rollup-plugin-json": "^4.0.0",
-    "rollup-plugin-node-builtins": "^2.1.2",
     "rollup-plugin-node-resolve": "^5.2.0",
-    "semantic-release": "^15.13.24",
-    "webex": "^1.80.43"
-  },
-  "peerDependencies": {
-    "webex": "^1.80.43"
+    "semantic-release": "^17.3.0"
   },
   "babel": {
     "plugins": [
-      "@babel/plugin-transform-regenerator",
       "@babel/plugin-transform-runtime"
     ],
     "presets": [
@@ -84,6 +73,7 @@
     ]
   },
   "jest": {
+    "preset": "jest-puppeteer",
     "reporters": [
       "default",
       "jest-junit"
@@ -92,6 +82,16 @@
   "jest-junit": {
     "outputDirectory": "test_results/jest",
     "outputName": "results.xml"
+  },
+  "nodemonConfig": {
+    "execMap": {
+      "js": "babel-node"
+    },
+    "ext": "js,json",
+    "watch": [
+      ".env",
+      "scripts/**/*"
+    ]
   },
   "commitlint": {
     "extends": [
@@ -110,8 +110,38 @@
   },
   "husky": {
     "hooks": {
-      "pre-commit": "npm run test:eslint",
+      "pre-commit": "npm run linter",
+      "pre-push": "npm run test:unit",
       "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
     }
+  },
+  "release": {
+    "plugins": [
+      "@semantic-release/commit-analyzer",
+      "@semantic-release/release-notes-generator",
+      "@semantic-release/changelog",
+      "@semantic-release/npm",
+      [
+        "@semantic-release/git",
+        {
+          "assets": [
+            "CHANGELOG.md",
+            "package.json",
+            "package-lock.json"
+          ]
+        }
+      ],
+      [
+        "@semantic-release/github",
+        {
+          "assets": [
+            {
+              "path": "dist/webexSDKComponentAdapter.esm.js",
+              "label": "ECMAScript (ESM) bundle"
+            }
+          ]
+        }
+      ]
+    ]
   }
 }
